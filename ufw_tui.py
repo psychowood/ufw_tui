@@ -36,6 +36,12 @@ class UFWManager:
     
     def run_command(self, cmd: List[str]) -> Tuple[str, str, int]:
         """Execute a command and return output, error, return_code"""
+        # Update last_command in UFWTUI if available
+        try:
+            from __main__ import UFWTUI
+            UFWTUI.last_command = ' '.join(cmd)
+        except Exception:
+            pass
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return result.stdout, result.stderr, result.returncode
@@ -124,6 +130,7 @@ class UFWManager:
             return code == 0, err if code != 0 else "UFW enabled"
 
 class UFWTUI:
+    last_command = ""
     def __init__(self):
         self.ufw = UFWManager()
         self.current_view = ViewMode.RULES
@@ -132,7 +139,6 @@ class UFWTUI:
         self.focus_left = True  # True: left panel, False: right panel
         self.message = ""
         self.message_time = 0
-        
         # Left panel commands
         self.left_commands = [
             ("Add ALLOW rule", self.add_allow_rule),
@@ -191,38 +197,33 @@ class UFWTUI:
         """Draw the complete interface"""
         self.stdscr.clear()
         height, width = self.stdscr.getmaxyx()
-        
         # Ensure minimum terminal size
         if height < 10 or width < 40:
             self.safe_addstr(self.stdscr, 0, 0, "Terminal too small! Min: 40x10")
             self.stdscr.refresh()
             return
-        
         # Header
         status_text = 'ACTIVE' if self.ufw.get_ufw_status() else 'INACTIVE'
         header = f" UFW TUI Manager - Status: {status_text} "
         self.safe_addstr(self.stdscr, 0, 0, header.ljust(width), curses.color_pair(1))
-        
         # Vertical divider
         mid_col = width // 2
         for i in range(1, height - 2):
             self.safe_addstr(self.stdscr, i, mid_col, '|')
-        
         # Left panel - Commands
         self.draw_left_panel(mid_col)
-        
         # Right panel - Data
         self.draw_right_panel(mid_col, width)
-        
         # Footer
         footer = f" F1:Help F5:Refresh F10:Quit | View: {self.current_view.value.upper()} "
         self.safe_addstr(self.stdscr, height-1, 0, footer.ljust(width), curses.color_pair(1))
-        
         # Message if present
         if self.message and height > 3:
             msg_color = curses.color_pair(4) if "success" in self.message.lower() else curses.color_pair(3)
             self.safe_addstr(self.stdscr, height-2, 2, self.message, msg_color)
-        
+        # Show last executed command at the very bottom right
+        cmd_text = f"Last command: {UFWTUI.last_command}" if UFWTUI.last_command else "Last command: (none)"
+        self.safe_addstr(self.stdscr, height-1, max(2, width - len(cmd_text) - 2), cmd_text, curses.color_pair(5))
         self.stdscr.refresh()
     
     def draw_left_panel(self, max_width):
