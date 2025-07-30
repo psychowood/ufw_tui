@@ -80,22 +80,22 @@ class UFWManager:
         return apps
     
     def get_listening_ports(self):
-        """Get listening ports"""
-        out, _, code = self.run_command(['ss', '-tuln'])
+        """Get listening ports using 'ufw show listening'"""
+        out, _, code = self.run_command(['sudo', 'ufw', 'show', 'listening'])
         if code != 0:
             return []
-        
         ports = []
-        for line in out.split('\n')[1:]:  # Skip header
-            if line.strip():
-                parts = line.split()
-                if len(parts) >= 5:
-                    proto = parts[0]
-                    state = parts[1] if len(parts) > 1 else ""
-                    local = parts[4] if len(parts) > 4 else ""
-                    if local and ':' in local:
-                        port = local.split(':')[-1]
-                        ports.append((proto, port, state))
+        for line in out.split('\n'):
+            line = line.strip()
+            # Example line: 'tcp 22 (LISTEN)' or 'udp 53'
+            if not line or line.startswith('---') or line.startswith('Proto'):
+                continue
+            # Try to parse: proto port (STATE)
+            match = re.match(r'^(tcp|udp)\s+(\d+)(?:\s+\(([^)]+)\))?', line)
+            if match:
+                proto, port, state = match.groups()
+                state = state if state else "LISTEN"
+                ports.append((proto, port, state))
         return ports
     
     def refresh_data(self):
