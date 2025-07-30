@@ -80,23 +80,11 @@ class UFWManager:
         return apps
     
     def get_listening_ports(self):
-        """Get listening ports using 'ufw show listening'"""
+        """Get listening ports using 'ufw show listening' and return raw output as a list of lines"""
         out, _, code = self.run_command(['sudo', 'ufw', 'show', 'listening'])
         if code != 0:
             return []
-        ports = []
-        for line in out.split('\n'):
-            line = line.strip()
-            # Example line: 'tcp 22 (LISTEN)' or 'udp 53'
-            if not line or line.startswith('---') or line.startswith('Proto'):
-                continue
-            # Try to parse: proto port (STATE)
-            match = re.match(r'^(tcp|udp)\s+(\d+)(?:\s+\(([^)]+)\))?', line)
-            if match:
-                proto, port, state = match.groups()
-                state = state if state else "LISTEN"
-                ports.append((proto, port, state))
-        return ports
+        return out.split('\n')
     
     def refresh_data(self):
         """Refresh all data"""
@@ -299,7 +287,7 @@ class UFWTUI:
             y += 1
     
     def draw_listening_panel(self, start_col, width):
-        """Draw listening ports panel"""
+        """Draw listening ports panel using raw output"""
         self.safe_addstr(self.stdscr, 1, start_col, "LISTENING PORTS:")
         
         if not self.ufw.listening_ports:
@@ -307,16 +295,14 @@ class UFWTUI:
             return
         
         y = 3
-        for i, (proto, port, state) in enumerate(self.ufw.listening_ports):
+        for i, line in enumerate(self.ufw.listening_ports):
             if y >= curses.LINES - 3:
                 break
-            
-            port_text = f"{proto:<4} {port:<6} {state}"
-            
+            display_text = line if line.strip() else ""
             if i == self.selected_right and self.current_view == ViewMode.LISTENING and not self.focus_left:
-                self.safe_addstr(self.stdscr, y, start_col-1, f" {port_text} ".ljust(width), curses.color_pair(2))
+                self.safe_addstr(self.stdscr, y, start_col-1, f" {display_text} ".ljust(width), curses.color_pair(2))
             else:
-                self.safe_addstr(self.stdscr, y, start_col, port_text)
+                self.safe_addstr(self.stdscr, y, start_col, display_text)
             y += 1
     
     def handle_input(self):
