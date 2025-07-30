@@ -378,9 +378,15 @@ class UFWTUI:
                 func()
     
     def change_view(self, view_mode):
-        """Change view mode"""
+        """Change view mode and set last_command to relevant command"""
         self.current_view = view_mode
         self.selected_right = 0
+        if view_mode == ViewMode.RULES:
+            self.last_command = "sudo ufw status numbered"
+        elif view_mode == ViewMode.APPS:
+            self.last_command = "sudo ufw app list"
+        elif view_mode == ViewMode.LISTENING:
+            self.last_command = "sudo ufw show listening"
         self.message = f"View changed: {view_mode.value}"
     
     def refresh(self):
