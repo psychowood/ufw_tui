@@ -36,12 +36,6 @@ class UFWManager:
     
     def run_command(self, cmd: List[str]) -> Tuple[str, str, int]:
         """Execute a command and return output, error, return_code"""
-        # Update last_command in UFWTUI if available
-        try:
-            from __main__ import UFWTUI
-            UFWTUI.last_command = ' '.join(cmd)
-        except Exception:
-            pass
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return result.stdout, result.stderr, result.returncode
@@ -398,6 +392,7 @@ class UFWTUI:
         """Add an ALLOW rule"""
         rule = self.get_input("Enter ALLOW rule (e.g., '22' or 'ssh'): ")
         if rule:
+            UFWTUI.last_command = f"sudo ufw allow {rule}"
             success, msg = self.ufw.add_rule(f"allow {rule}")
             self.message = msg
             if success:
@@ -407,6 +402,7 @@ class UFWTUI:
         """Add a DENY rule"""
         rule = self.get_input("Enter DENY rule (e.g., '80' or 'from 192.168.1.0/24'): ")
         if rule:
+            UFWTUI.last_command = f"sudo ufw deny {rule}"
             success, msg = self.ufw.add_rule(f"deny {rule}")
             self.message = msg
             if success:
@@ -419,6 +415,7 @@ class UFWTUI:
             rule = self.ufw.rules[self.selected_right]
             confirm = self.get_input(f"Delete rule {rule.num}? (y/N): ")
             if confirm.lower() == 'y':
+                UFWTUI.last_command = f"sudo ufw delete {rule.num}"
                 success, msg = self.ufw.delete_rule(rule.num)
                 self.message = msg
                 if success:
@@ -428,6 +425,10 @@ class UFWTUI:
     
     def toggle_firewall(self):
         """Enable/disable UFW"""
+        if self.ufw.get_ufw_status():
+            UFWTUI.last_command = "sudo ufw disable"
+        else:
+            UFWTUI.last_command = "sudo ufw enable"
         success, msg = self.ufw.toggle_ufw()
         self.message = msg
     
@@ -435,6 +436,7 @@ class UFWTUI:
         """Reset UFW"""
         confirm = self.get_input("WARNING: Complete UFW reset? (y/N): ")
         if confirm.lower() == 'y':
+            UFWTUI.last_command = "sudo ufw --force reset"
             out, err, code = self.ufw.run_command(['sudo', 'ufw', '--force', 'reset'])
             self.message = "UFW reset" if code == 0 else f"Error: {err}"
             self.refresh()
