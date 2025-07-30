@@ -124,7 +124,6 @@ class UFWManager:
             return code == 0, err if code != 0 else "UFW enabled"
 
 class UFWTUI:
-    last_command = ""
     def __init__(self):
         self.ufw = UFWManager()
         self.current_view = ViewMode.RULES
@@ -133,6 +132,7 @@ class UFWTUI:
         self.focus_left = True  # True: left panel, False: right panel
         self.message = ""
         self.message_time = 0
+        self.last_command = ""
         # Left panel commands
         self.left_commands = [
             ("Add ALLOW rule", self.add_allow_rule),
@@ -216,7 +216,7 @@ class UFWTUI:
             msg_color = curses.color_pair(4) if "success" in self.message.lower() else curses.color_pair(3)
             self.safe_addstr(self.stdscr, height-2, 2, self.message, msg_color)
         # Show last executed command at the very bottom right
-        cmd_text = f"Last command: {UFWTUI.last_command}" if UFWTUI.last_command else "Last command: (none)"
+        cmd_text = f"Last command: {self.last_command}" if self.last_command else "Last command: (none)"
         self.safe_addstr(self.stdscr, height-1, max(2, width - len(cmd_text) - 2), cmd_text, curses.color_pair(5))
         self.stdscr.refresh()
     
@@ -392,7 +392,7 @@ class UFWTUI:
         """Add an ALLOW rule"""
         rule = self.get_input("Enter ALLOW rule (e.g., '22' or 'ssh'): ")
         if rule:
-            UFWTUI.last_command = f"sudo ufw allow {rule}"
+            self.last_command = f"sudo ufw allow {rule}"
             success, msg = self.ufw.add_rule(f"allow {rule}")
             self.message = msg
             if success:
@@ -402,7 +402,7 @@ class UFWTUI:
         """Add a DENY rule"""
         rule = self.get_input("Enter DENY rule (e.g., '80' or 'from 192.168.1.0/24'): ")
         if rule:
-            UFWTUI.last_command = f"sudo ufw deny {rule}"
+            self.last_command = f"sudo ufw deny {rule}"
             success, msg = self.ufw.add_rule(f"deny {rule}")
             self.message = msg
             if success:
@@ -415,7 +415,7 @@ class UFWTUI:
             rule = self.ufw.rules[self.selected_right]
             confirm = self.get_input(f"Delete rule {rule.num}? (y/N): ")
             if confirm.lower() == 'y':
-                UFWTUI.last_command = f"sudo ufw delete {rule.num}"
+                self.last_command = f"sudo ufw delete {rule.num}"
                 success, msg = self.ufw.delete_rule(rule.num)
                 self.message = msg
                 if success:
@@ -426,9 +426,9 @@ class UFWTUI:
     def toggle_firewall(self):
         """Enable/disable UFW"""
         if self.ufw.get_ufw_status():
-            UFWTUI.last_command = "sudo ufw disable"
+            self.last_command = "sudo ufw disable"
         else:
-            UFWTUI.last_command = "sudo ufw enable"
+            self.last_command = "sudo ufw enable"
         success, msg = self.ufw.toggle_ufw()
         self.message = msg
     
@@ -436,7 +436,7 @@ class UFWTUI:
         """Reset UFW"""
         confirm = self.get_input("WARNING: Complete UFW reset? (y/N): ")
         if confirm.lower() == 'y':
-            UFWTUI.last_command = "sudo ufw --force reset"
+            self.last_command = "sudo ufw --force reset"
             out, err, code = self.ufw.run_command(['sudo', 'ufw', '--force', 'reset'])
             self.message = "UFW reset" if code == 0 else f"Error: {err}"
             self.refresh()
